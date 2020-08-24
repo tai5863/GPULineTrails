@@ -151,8 +151,8 @@
           vec3 velocity = texelFetch(uVelocityTexture, coord, 0).xyz;
 
           // update position & velocity
-          vec3 acceleration = curlnoise(position * uNoiseScale, uTime * 0.1);
-          acceleration = uMaxForce * mix(acceleration, -normalize(position), smoothstep(uBoundRadius, uBoundRadius * 1.001, length(position)));
+          vec3 acceleration = curlnoise(position * uNoiseScale, uTime * 0.05);
+          acceleration = uMaxForce * mix(acceleration, -normalize(position), smoothstep(uBoundRadius, uBoundRadius * 1.005, length(position)));
 
           nextVelocity = limit(velocity + uDeltaTime * acceleration, uMaxSpeed);
           nextPosition = position + uDeltaTime * nextVelocity;
@@ -167,6 +167,7 @@
     <script type="x-shader/x-vertex" id="render_vs">#version 300 es
     uniform sampler2D uPositionTexture;
     uniform mat4 vpMatrix;
+    uniform bool uRenderType;
 
     out vec3 trailColor;
 
@@ -187,6 +188,9 @@
 
       trailColor = color;
       gl_Position = vpMatrix * vec4(position, 1.0);
+      if (!uRenderType) {
+        gl_PointSize = 1.0;
+      }
     }
     </script>
     <script type="x-shader/x-fragment" id="render_trails_fs">#version 300 es
@@ -206,8 +210,7 @@
     <div id="container"></div>
     <h1>GPU Line Trails</h1>
     <div id="parameter_container">
-      <div class="parameter"><div class="parameter_name">Trail Size<span id="disp_trail_size" class="value"></span></div><input type="range" id="trail_size" min="0.01" max="100.0" value="50.0" step="0.01"/></div><br>
-      <div class="parameter"><div class="parameter_name">Vertex Size<span id="disp_vertex_size" class="value"></span></div><input type="range" id="vertex_size" min="0.01" max="100.0" value="30.0" step="0.01"/></div><br>
+      <div class="parameter"><div class="parameter_name">Render<input type="checkbox" id="render" checked="checked"/><span id="disp_render" class="value"></span></div></div><br>
       <div class="parameter"><div class="parameter_name">Max Speed<span id="disp_max_speed" class="value"></span></div><input type="range" id="max_speed" min="0.01" max="100.0" value="50.0" step="0.01"/></div><br>
       <div class="parameter"><div class="parameter_name">Max Force<span id="disp_max_force" class="value"></span></div><input type="range" id="max_force" min="0.01" max="100.0" value="100.0" step="0.01"/></div><br>
       <div class="parameter"><div class="parameter_name">Bound Radius<span id="disp_bound_rad" class="value"></span></div><input type="range" id="bound_rad" min="50.0" max="400.0" value="200.0" step="0.1"/></div><br>

@@ -24,9 +24,8 @@ window.onload = () => {
   let updateTrailsProgram = createProgram('buffer_vs', 'update_trails_fs');
   let renderTrailsProgram = createProgram('render_vs', 'render_trails_fs');
 
-  let initializeUniforms = getUniformLocations(initializeTrailsProgram, []);
   let updateUniforms = getUniformLocations(updateTrailsProgram, ['uPositionTexture', 'uVelocityTexture', 'uTime', 'uDeltaTime', 'uMaxSpeed', 'uMaxForce', 'uBoundRadius', 'uNoiseScale']);
-  let renderUniforms = getUniformLocations(renderTrailsProgram, ['uPositionTexture', 'vpMatrix']);
+  let renderUniforms = getUniformLocations(renderTrailsProgram, ['uPositionTexture', 'vpMatrix', 'uRenderType']);
 
   let m = new matIV();
   let vMatrix = m.identity(m.create());
@@ -38,6 +37,7 @@ window.onload = () => {
   function render() {
 
     let params = {
+      render: document.getElementById('render').checked,
       trail_size: 4096,
       vertex_size: 256,
       max_speed: document.getElementById('max_speed').value,
@@ -95,7 +95,12 @@ window.onload = () => {
       gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.positionTexture);
       gl.uniform1i(renderUniforms['uPositiontexture'], 0);
       gl.uniformMatrix4fv(renderUniforms['vpMatrix'], false, tmpMatrix);
-      gl.drawArraysInstanced(gl.LINE_STRIP, 0, params.vertex_size, params.trail_size);
+      if (params.render) {
+        gl.drawArraysInstanced(gl.LINE_STRIP, 0, params.vertex_size, params.trail_size);
+      } else {
+        gl.uniform1i(renderUniforms['uRenderType'], params.render);
+        gl.drawArraysInstanced(gl.POINTS, 0, params.vertex_size, params.trail_size);
+      }
       gl.disable(gl.BLEND);
     }
     
@@ -122,6 +127,7 @@ window.onload = () => {
       m.multiply(pMatrix, vMatrix, tmpMatrix);
 
       params = {
+        render: document.getElementById('render').checked,
         trail_size: 4096,
         vertex_size: 256,
         max_speed: document.getElementById('max_speed').value,
@@ -132,8 +138,7 @@ window.onload = () => {
         cam_dist: document.getElementById('cam_dist').value,
       };
 
-      let eTrailSize = document.getElementById('disp_trail_size');
-      let eVertexSize = document.getElementById('disp_vertex_size');
+      let eRender = document.getElementById('disp_render');
       let eMaxSpeed = document.getElementById('disp_max_speed');
       let eMaxForce = document.getElementById('disp_max_force');
       let eboundRad = document.getElementById('disp_bound_rad');
@@ -141,8 +146,11 @@ window.onload = () => {
       let eFOV = document.getElementById('disp_fov');
       let eCamDist = document.getElementById('disp_cam_dist');
       
-      eTrailSize.innerHTML = params.trail_size;
-      eVertexSize.innerHTML = params.vertex_size;
+      if (params.render) {
+        eRender.innerHTML = 'Line';
+      } else {
+        eRender.innerHTML = 'Points';
+      }
       eMaxSpeed.innerHTML = params.max_speed;
       eMaxForce.innerHTML = params.max_force;
       eboundRad.innerHTML= params.bound_rad;
