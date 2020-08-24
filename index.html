@@ -151,7 +151,7 @@
           vec3 velocity = texelFetch(uVelocityTexture, coord, 0).xyz;
 
           // update position & velocity
-          vec3 acceleration = curlnoise(position * uNoiseScale, uTime * 0.2);
+          vec3 acceleration = curlnoise(position * uNoiseScale, uTime * 0.1);
           acceleration = uMaxForce * mix(acceleration, -normalize(position), smoothstep(uBoundRadius, uBoundRadius * 1.001, length(position)));
 
           nextVelocity = limit(velocity + uDeltaTime * acceleration, uMaxSpeed);
@@ -208,10 +208,10 @@
     <div id="parameter_container">
       <div class="parameter"><div class="parameter_name">Trail Size<span id="disp_trail_size" class="value"></span></div><input type="range" id="trail_size" min="0.01" max="100.0" value="50.0" step="0.01"/></div><br>
       <div class="parameter"><div class="parameter_name">Vertex Size<span id="disp_vertex_size" class="value"></span></div><input type="range" id="vertex_size" min="0.01" max="100.0" value="30.0" step="0.01"/></div><br>
-      <div class="parameter"><div class="parameter_name">Max Speed<span id="disp_max_speed" class="value"></span></div><input type="range" id="max_speed" min="0.01" max="100.0" value="40.0" step="0.01"/></div><br>
+      <div class="parameter"><div class="parameter_name">Max Speed<span id="disp_max_speed" class="value"></span></div><input type="range" id="max_speed" min="0.01" max="100.0" value="50.0" step="0.01"/></div><br>
       <div class="parameter"><div class="parameter_name">Max Force<span id="disp_max_force" class="value"></span></div><input type="range" id="max_force" min="0.01" max="100.0" value="100.0" step="0.01"/></div><br>
       <div class="parameter"><div class="parameter_name">Bound Radius<span id="disp_bound_rad" class="value"></span></div><input type="range" id="bound_rad" min="50.0" max="400.0" value="200.0" step="0.1"/></div><br>
-      <div class="parameter"><div class="parameter_name">Noise Scale<span id="disp_noise_scale" class="value"></span></div><input type="range" id="noise_scale" min="0.001" max="0.02" value="0.005" step="0.0001"/></div><br>
+      <div class="parameter"><div class="parameter_name">Noise Scale<span id="disp_noise_scale" class="value"></span></div><input type="range" id="noise_scale" min="0.001" max="0.02" value="0.003" step="0.0001"/></div><br>
       <div class="parameter"><div class="parameter_name">FOV<span id="disp_fov" class="value"></span></div><input type="range" id="fov" min="15.0" max="100.0" value="100.0" step="0.01"/></div><br>
       <div class="parameter"><div class="parameter_name">Camera Dist<span id="disp_cam_dist" class="value"></span></div><input type="range" id="cam_dist" min="10.0" max="500.0" value="200.0" step="0.1"/></div><br>
     </div>
