@@ -52,6 +52,10 @@
     uniform sampler2D uVelocityTexture;
     uniform float uTime;
     uniform float uDeltaTime;
+    uniform float uMaxSpeed;
+    uniform float uBoundRadius;
+    uniform float uNoiseScale;
+    uniform float uMaxForce;
 
     layout (location = 0) out vec3 o_position;
     layout (location = 1) out vec3 o_velocity;
@@ -147,10 +151,10 @@
           vec3 velocity = texelFetch(uVelocityTexture, coord, 0).xyz;
 
           // update position & velocity
-          vec3 acceleration = curlnoise(position * 0.005, uTime * 0.2);
-          acceleration = 30.0 * mix(acceleration, -normalize(position), smoothstep(200.0, 200.0 * 1.05, length(position)));
+          vec3 acceleration = curlnoise(position * uNoiseScale, uTime * 0.2);
+          acceleration = uMaxForce * mix(acceleration, -normalize(position), smoothstep(uBoundRadius, uBoundRadius * 1.001, length(position)));
 
-          nextVelocity = limit(velocity + uDeltaTime * acceleration, 50.0);
+          nextVelocity = limit(velocity + uDeltaTime * acceleration, uMaxSpeed);
           nextPosition = position + uDeltaTime * nextVelocity;
         } else {
           nextPosition = texelFetch(uPositionTexture, coord - ivec2(0, 1), 0).xyz;
@@ -164,28 +168,52 @@
     uniform sampler2D uPositionTexture;
     uniform mat4 vpMatrix;
 
+    out vec3 trailColor;
+
+    float random(float p) {
+      return fract(sin(p * 12.9898) * 43758.5453);
+    }
+
     void main(void) {
       vec3 position = texelFetch(uPositionTexture, ivec2(gl_InstanceID, gl_VertexID), 0).xyz;
+
+      float id = float(gl_InstanceID);
+
+      vec3 color = vec3(0.0);
+      color.r = random(id * 0.234 + 432.43);
+      color.g = random(id * 0.342 + 342.34);
+      // color.b = random(id * 0.432 + 234.23);
+      color.b = 1.0;
+
+      trailColor = color;
       gl_Position = vpMatrix * vec4(position, 1.0);
     }
     </script>
     <script type="x-shader/x-fragment" id="render_trails_fs">#version 300 es
     precision highp float;
 
+    in vec3 trailColor;
+
     out vec4 fragColor;
 
     void main(void) {
-      fragColor = vec4(1.0);
+      fragColor = vec4(trailColor, 1.0);
     }
     </script>
 </head>
 <body>
     <canvas id="canvas"></canvas>
     <div id="container"></div>
-    <h1>Gray Scott Reaction Diffusion Simulation</h1>
+    <h1>GPU Line Trails</h1>
     <div id="parameter_container">
-      <div class="parameter"><div class="parameter_name">Feed<span id="disp_feed" class="value"></span></div><input type="range" id="feed" min="0.001" max="0.1" value="0.037" step="0.001"/></div><br>
-      <div class="parameter"><div class="parameter_name">Kill<span id="disp_kill" class="value"></span></div><input type="range" id="kill" min="0.001" max="0.1" value="0.06" step="0.001"/></div><br>
+      <div class="parameter"><div class="parameter_name">Trail Size<span id="disp_trail_size" class="value"></span></div><input type="range" id="trail_size" min="0.01" max="100.0" value="50.0" step="0.01"/></div><br>
+      <div class="parameter"><div class="parameter_name">Vertex Size<span id="disp_vertex_size" class="value"></span></div><input type="range" id="vertex_size" min="0.01" max="100.0" value="30.0" step="0.01"/></div><br>
+      <div class="parameter"><div class="parameter_name">Max Speed<span id="disp_max_speed" class="value"></span></div><input type="range" id="max_speed" min="0.01" max="100.0" value="40.0" step="0.01"/></div><br>
+      <div class="parameter"><div class="parameter_name">Max Force<span id="disp_max_force" class="value"></span></div><input type="range" id="max_force" min="0.01" max="100.0" value="100.0" step="0.01"/></div><br>
+      <div class="parameter"><div class="parameter_name">Bound Radius<span id="disp_bound_rad" class="value"></span></div><input type="range" id="bound_rad" min="50.0" max="400.0" value="200.0" step="0.1"/></div><br>
+      <div class="parameter"><div class="parameter_name">Noise Scale<span id="disp_noise_scale" class="value"></span></div><input type="range" id="noise_scale" min="0.001" max="0.02" value="0.005" step="0.0001"/></div><br>
+      <div class="parameter"><div class="parameter_name">FOV<span id="disp_fov" class="value"></span></div><input type="range" id="fov" min="15.0" max="100.0" value="100.0" step="0.01"/></div><br>
+      <div class="parameter"><div class="parameter_name">Camera Dist<span id="disp_cam_dist" class="value"></span></div><input type="range" id="cam_dist" min="10.0" max="500.0" value="200.0" step="0.1"/></div><br>
     </div>
 </body>
 </html>

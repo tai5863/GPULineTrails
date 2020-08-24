@@ -25,7 +25,7 @@ window.onload = () => {
   let renderTrailsProgram = createProgram('render_vs', 'render_trails_fs');
 
   let initializeUniforms = getUniformLocations(initializeTrailsProgram, []);
-  let updateUniforms = getUniformLocations(updateTrailsProgram, ['uPositionTexture', 'uVelocityTexture', 'uTime', 'uDeltaTime']);
+  let updateUniforms = getUniformLocations(updateTrailsProgram, ['uPositionTexture', 'uVelocityTexture', 'uTime', 'uDeltaTime', 'uMaxSpeed', 'uMaxForce', 'uBoundRadius', 'uNoiseScale']);
   let renderUniforms = getUniformLocations(renderTrailsProgram, ['uPositionTexture', 'vpMatrix']);
 
   let m = new matIV();
@@ -33,17 +33,19 @@ window.onload = () => {
   let pMatrix = m.identity(m.create());
   let tmpMatrix = m.identity(m.create());
 
-  m.lookAt([0.0, 0.0, 5.0], [0, 0, 0], [0, 1, 0], vMatrix);
-  m.perspective(60, canvas.width / canvas.height, 0.1, 1000, pMatrix);
-  m.multiply(pMatrix, vMatrix, tmpMatrix);
-
   render();
 
   function render() {
 
     let params = {
       trail_size: 4096,
-      vertex_size: 256
+      vertex_size: 256,
+      max_speed: document.getElementById('max_speed').value,
+      max_force: document.getElementById('max_force').value,
+      bound_rad: document.getElementById('bound_rad').value,
+      noise_scale: document.getElementById('noise_scale').value,
+      FOV: document.getElementById('fov').value,
+      cam_dist: document.getElementById('cam_dist').value,
     };
 
     // swapping functions
@@ -74,6 +76,10 @@ window.onload = () => {
       gl.uniform1i(updateUniforms['uVelocityTexture'], 1);
       gl.uniform1f(updateUniforms['uTime'], time);
       gl.uniform1f(updateUniforms['uDeltaTime'], dt);
+      gl.uniform1f(updateUniforms['uMaxSpeed'], params.max_speed);
+      gl.uniform1f(updateUniforms['uMaxForce'], params.max_force);
+      gl.uniform1f(updateUniforms['uBoundRadius'], params.bound_rad);
+      gl.uniform1f(updateUniforms['uNoiseScale'], params.noise_scale);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       swapTrailsFBObj();
@@ -95,6 +101,7 @@ window.onload = () => {
     
     let elapsedTime = 0.0;
     let prevTime = performance.now();
+    let count = 0;
 
     initializeTrails();
 
@@ -107,19 +114,44 @@ window.onload = () => {
       gl.clearColor(0.0, 0.0, 0.0, 1.0);
       gl.viewport(0.0, 0.0, canvas.width, canvas.height);
 
+      count++;
+      let rad = (count % 4000.0) * Math.PI / 2000.0;
+
+      m.lookAt([params.cam_dist * Math.cos(rad), 0.0, params.cam_dist * Math.sin(rad)], [0, 0, 0], [0, 1, 0], vMatrix);
+      m.perspective(params.FOV, canvas.width / canvas.height, 0.1, 1000, pMatrix);
+      m.multiply(pMatrix, vMatrix, tmpMatrix);
+
       params = {
         trail_size: 4096,
-        vertex_size: 256
+        vertex_size: 256,
+        max_speed: document.getElementById('max_speed').value,
+        max_force: document.getElementById('max_force').value,
+        bound_rad: document.getElementById('bound_rad').value,
+        noise_scale: document.getElementById('noise_scale').value,
+        FOV: document.getElementById('fov').value,
+        cam_dist: document.getElementById('cam_dist').value,
       };
 
-      // let eTrailSize = document.getElementById('disp_trail_size');
-      // let eVertexSize = document.getElementById('disp_vertex_size');
+      let eTrailSize = document.getElementById('disp_trail_size');
+      let eVertexSize = document.getElementById('disp_vertex_size');
+      let eMaxSpeed = document.getElementById('disp_max_speed');
+      let eMaxForce = document.getElementById('disp_max_force');
+      let eboundRad = document.getElementById('disp_bound_rad');
+      let eNoiseScale = document.getElementById('disp_noise_scale');
+      let eFOV = document.getElementById('disp_fov');
+      let eCamDist = document.getElementById('disp_cam_dist');
       
-      // eTrailSize.innerHTML = String(params.trail_size);
-      // eVertexSize.innerHTML = String(params.vertex_size);
+      eTrailSize.innerHTML = params.trail_size;
+      eVertexSize.innerHTML = params.vertex_size;
+      eMaxSpeed.innerHTML = params.max_speed;
+      eMaxForce.innerHTML = params.max_force;
+      eboundRad.innerHTML= params.bound_rad;
+      eNoiseScale.innerHTML = params.noise_scale;
+      eFOV.innerHTML = params.FOV;
+      eCamDist.innerHTML = params.cam_dist;
 
       let currentTime = performance.now();
-      let dt = Math.min(0.05, (currentTime - prevTime) * 0.001);
+      let dt = Math.min(0.05, (currentTime - prevTime) * 0.005);
       elapsedTime += dt;
       prevTime = currentTime;
 
