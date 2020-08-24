@@ -22,70 +22,73 @@ window.onload = () => {
 
   gl.viewport(0.0, 0.0, canvas.width, canvas.height);
   
-  let calculateGrayScottProgram = createProgram('vs', 'calculate_gray_scott_fs');
-  let renderGrayScottProgram = createProgram('vs', 'render_gray_scott_fs');
+  let initializeTrailsProgram = createProgram('buffer_vs', 'init_trails_fs');
+  let updateTrailsProgram = createProgram('buffer_vs', 'update_trails_fs');
+  let renderTrailsProgram = createProgram('render_vs', 'render_trails_fs');
 
-  let calculateGrayScottUniforms = getUniformLocations(calculateGrayScottProgram, ['u_resolution', 'u_mousePosition', 'u_mousePress', 'u_texture', 'u_delta', 'u_feed', 'u_kill']);
-  let renderGrayScottUniforms = getUniformLocations(renderGrayScottProgram, ['u_texture']);
-
-  let mousePosition = [0.0, 0.0];
-
-  window.addEventListener('mousemove', (e) => {
-    mousePosition = [e.clientX, canvas.height - e.clientY];
-  });
-
-  let mousePress = false;
-  window.addEventListener('mousedown', () => {
-    mousePress = true;
-  });
-  window.addEventListener('mouseup', () => {
-    mousePress = false;
-  });
+  let initializeUniforms = getUniformLocations(initializeTrailsProgram, ['uPositionTexture', 'uVelocityTexture']);
+  let updateUniforms = getUniformLocations(updateTrailsProgram, ['uPositionTexture', 'uVelocityTexture', 'uTime', 'uDeltaTime']);
+  let renderUniforms = getUniformLocations(renderTrailsProgram, ['uPositionTexture']);
 
   render();
 
   function render() {
 
     let params = {
-      feed: document.getElementById('feed').value,
-      kill: document.getElementById('kill').value,
+      trail_size: 4096,
+      vertex_size: 256
     };
 
     // swapping functions
-    let grayScottFBObjR = createFramebuffer(canvas.width, canvas.height);
-    let grayScottFBObjW = createFramebuffer(canvas.width, canvas.height);
-    function swapGrayScottFBObj() {
-      let tmp = grayScottFBObjR;
-      grayScottFBObjR = grayScottFBObjW;
-      grayScottFBObjW = tmp;
+    let trailsFBObjR = createFramebuffer(params.trail_size, params.vertex_size);
+    let trailsFBObjW = createFramebuffer(params.trail_size, params.vertex_size);
+    function swapTrailsFBObj() {
+      let tmp = trailsFBObjR;
+      trailsFBObjR = trailsFBObjW;
+      trailsFBObjW = tmp;
     };
 
-    function calculateGrayScott(dt) {
-      gl.useProgram(calculateGrayScottProgram);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, grayScottFBObjW.framebuffer);
+    function initializeTrails() {
+      gl.useProgram(initializeTrailsProgram);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, trailsFBObjW.framebuffer);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, grayScottFBObjR.texture);
-      gl.uniform2f(calculateGrayScottUniforms['u_resolution'], canvas.width, canvas.height);
-      gl.uniform2fv(calculateGrayScottUniforms['u_mousePosition'], mousePosition);
-      gl.uniform1i(calculateGrayScottUniforms['u_mousePress'], mousePress);
-      gl.uniform1i(calculateGrayScottUniforms['u_texture'], 0);
-      gl.uniform1f(calculateGrayScottUniforms['u_delta'], dt);
-      gl.uniform1f(calculateGrayScottUniforms['u_feed'], params.feed);
-      gl.uniform1f(calculateGrayScottUniforms['u_kill'], params.kill);
+      gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.positionTexture);
+      gl.uniform1i(initializeUniforms['uPositionTexture'], 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.velocityTexture);
+      gl.uniform1i(initializeUniforms['uVelocityTexture'], 1);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      swapGrayScottFBObj();
+      swapTrailsFBObj();
     }
 
-    function renderGrayScott() {
-      gl.useProgram(renderGrayScottProgram);
+    function updateTrails(time, dt) {
+      gl.useProgram(updateTrailsProgram);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, trailsFBObjW.framebuffer);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, grayScottFBObjR.texture);
-      gl.uniform1i(renderGrayScottUniforms['u_texture'], 0);
+      gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.positionTexture);
+      gl.uniform1i(updateUniforms['uPositionTexture'], 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.velocityTexture);
+      gl.uniform1i(updateUniforms['uVelocityTexture'], 1);
+      gl.uniform1f(updateUniforms['uTime'], time);
+      gl.uniform1f(updateUniforms['uDeltaTime'], dt);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      swapTrailsFBObj();
+    }
+    
+    function renderTrails() {
+      gl.useProgram(renderTrailsProgram);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.positionTexture);
+      gl.uniform1i(renderUniforms['uPositiontexture'], 0);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
     
-    let previousRealSeconds = new Date().getTime();
+    let prevSeconds = new Date().getTime();
+
+    initializeTrails();
 
     loop();
 
@@ -96,28 +99,24 @@ window.onload = () => {
       gl.viewport(0.0, 0.0, canvas.width, canvas.height);
 
       params = {
-        feed: document.getElementById('feed').value,
-        kill: document.getElementById('kill').value,
+        trail_size: 4096,
+        vertex_size: 256
       };
 
-      let e_feed = document.getElementById('disp_feed');
-      let e_kill = document.getElementById('disp_kill');
+      let eTrailSize = document.getElementById('disp_trail_size');
+      let eVertexSize = document.getElementById('disp_vertex_size');
       
-      e_feed.innerHTML = String(params.feed);
-      e_kill.innerHTML = String(params.kill);
+      eTrailSize.innerHTML = String(params.trail_size);
+      eVertexSize.innerHTML = String(params.vertex_size);
 
-      let currentRealSeconds = new Date().getTime();
-      let dt = currentRealSeconds - previousRealSeconds;
+      let currentSeconds = new Date().getTime();
+      let dt = (currentSeconds - prevSeconds) / 20.0;
 
-      if (dt > 1.0 || dt <= 0) {
-        dt = 1.0;
-      }
-
-      calculateGrayScott(dt);
+      updateTrails(currentSeconds, dt);
 
       previousRealSeconds = currentRealSeconds;
 
-      renderGrayScott();
+      renderTrails();
 
       requestAnimationFrame(loop);
     }
@@ -213,9 +212,17 @@ window.onload = () => {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 
-    let texture = createTexture(width, height, gl.RG32F, gl.RG, gl.FLOAT);
+    let positionTexture = createTexture(width, height, gl.RG32F, gl.RGBA, gl.FLOAT);
+    
+    gl.bindTexture(gl.TEXTURE_2D, positionTexture);
 
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, positionTexture, 0);
+
+    let velocityTexture = createTexture(width, height, gl.RG32F, gl.RGBA, gl.FLOAT);
+    
+    gl.bindTexture(gl.TEXTURE_2D, velocityTexture);
+
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, velocityTexture, 0);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
@@ -223,7 +230,8 @@ window.onload = () => {
 
     return {
       framebuffer: framebuffer,
-      texture: texture
+      positionTexture: positiontexture,
+      velocityTexture: velocityTexture 
     };
   }
 }
