@@ -20,15 +20,22 @@ window.onload = () => {
   addEventListener('resize', resizeCanvas);
   resizeCanvas();
 
-  gl.viewport(0.0, 0.0, canvas.width, canvas.height);
-  
   let initializeTrailsProgram = createProgram('buffer_vs', 'init_trails_fs');
   let updateTrailsProgram = createProgram('buffer_vs', 'update_trails_fs');
   let renderTrailsProgram = createProgram('render_vs', 'render_trails_fs');
 
-  let initializeUniforms = getUniformLocations(initializeTrailsProgram, ['uPositionTexture', 'uVelocityTexture']);
+  let initializeUniforms = getUniformLocations(initializeTrailsProgram, []);
   let updateUniforms = getUniformLocations(updateTrailsProgram, ['uPositionTexture', 'uVelocityTexture', 'uTime', 'uDeltaTime']);
-  let renderUniforms = getUniformLocations(renderTrailsProgram, ['uPositionTexture']);
+  let renderUniforms = getUniformLocations(renderTrailsProgram, ['uPositionTexture', 'vpMatrix']);
+
+  let m = new matIV();
+  let vMatrix = m.identity(m.create());
+  let pMatrix = m.identity(m.create());
+  let tmpMatrix = m.identity(m.create());
+
+  m.lookAt([0.0, 0.0, 5.0], [0, 0, 0], [0, 1, 0], vMatrix);
+  m.perspective(60, canvas.width / canvas.height, 0.1, 1000, pMatrix);
+  m.multiply(pMatrix, vMatrix, tmpMatrix);
 
   render();
 
@@ -51,12 +58,6 @@ window.onload = () => {
     function initializeTrails() {
       gl.useProgram(initializeTrailsProgram);
       gl.bindFramebuffer(gl.FRAMEBUFFER, trailsFBObjW.framebuffer);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.positionTexture);
-      gl.uniform1i(initializeUniforms['uPositionTexture'], 0);
-      gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.velocityTexture);
-      gl.uniform1i(initializeUniforms['uVelocityTexture'], 1);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       swapTrailsFBObj();
@@ -79,14 +80,21 @@ window.onload = () => {
     }
     
     function renderTrails() {
+      gl.clear(gl.COLOR_BUFFER_BIT); 
+      gl.viewport(0.0, 0.0, canvas.width, canvas.height);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
       gl.useProgram(renderTrailsProgram);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.positionTexture);
       gl.uniform1i(renderUniforms['uPositiontexture'], 0);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.uniformMatrix4fv(renderUniforms['vpMatrix'], false, tmpMatrix);
+      gl.drawArraysInstanced(gl.LINE_STRIP, 0, params.vertex_size, params.trail_size);
+      gl.disable(gl.BLEND);
     }
     
-    let prevSeconds = new Date().getTime();
+    let elapsedTime = 0.0;
+    let prevTime = performance.now();
 
     initializeTrails();
 
@@ -96,6 +104,7 @@ window.onload = () => {
 
       stats.update();
 
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
       gl.viewport(0.0, 0.0, canvas.width, canvas.height);
 
       params = {
@@ -103,18 +112,18 @@ window.onload = () => {
         vertex_size: 256
       };
 
-      let eTrailSize = document.getElementById('disp_trail_size');
-      let eVertexSize = document.getElementById('disp_vertex_size');
+      // let eTrailSize = document.getElementById('disp_trail_size');
+      // let eVertexSize = document.getElementById('disp_vertex_size');
       
-      eTrailSize.innerHTML = String(params.trail_size);
-      eVertexSize.innerHTML = String(params.vertex_size);
+      // eTrailSize.innerHTML = String(params.trail_size);
+      // eVertexSize.innerHTML = String(params.vertex_size);
 
-      let currentSeconds = new Date().getTime();
-      let dt = (currentSeconds - prevSeconds) / 20.0;
+      let currentTime = performance.now();
+      let dt = Math.min(0.05, (currentTime - prevTime) * 0.001);
+      elapsedTime += dt;
+      prevTime = currentTime;
 
-      updateTrails(currentSeconds, dt);
-
-      previousRealSeconds = currentRealSeconds;
+      updateTrails(elapsedTime, dt);
 
       renderTrails();
 
@@ -197,10 +206,6 @@ window.onload = () => {
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
     gl.bindTexture(gl.TEXTURE_2D, null);
 
     return tex;
@@ -212,17 +217,19 @@ window.onload = () => {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 
-    let positionTexture = createTexture(width, height, gl.RG32F, gl.RGBA, gl.FLOAT);
+    let positionTexture = createTexture(width, height, gl.RGBA32F, gl.RGBA, gl.FLOAT);
     
     gl.bindTexture(gl.TEXTURE_2D, positionTexture);
 
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, positionTexture, 0);
 
-    let velocityTexture = createTexture(width, height, gl.RG32F, gl.RGBA, gl.FLOAT);
+    let velocityTexture = createTexture(width, height, gl.RGBA32F, gl.RGBA, gl.FLOAT);
     
     gl.bindTexture(gl.TEXTURE_2D, velocityTexture);
 
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, velocityTexture, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, velocityTexture, 0);
+
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
@@ -230,7 +237,7 @@ window.onload = () => {
 
     return {
       framebuffer: framebuffer,
-      positionTexture: positiontexture,
+      positionTexture: positionTexture,
       velocityTexture: velocityTexture 
     };
   }

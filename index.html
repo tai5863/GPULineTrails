@@ -5,97 +5,178 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GPU Line Tralis</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js"></script>
+    <!--↓doxas's minMatrixb.js-->
+    <script src="https://wgld.org/j/minMatrixb.js"></script>
     <script src="main.js"></script>
     <script type="x-shader/x-vertex" id="buffer_vs">#version 300 es
-        const vec3[4] POSITIONS = vec3[](
-            vec3(-1.0, -1.0, 0.0),
-            vec3(1.0, -1.0, 0.0),
-            vec3(-1.0, 1.0, 0.0),
-            vec3(1.0, 1.0, 0.0)
-        );
-        
-        const int[6] INDICES = int[](
-            0, 1, 2,
-            3, 2, 1
-        );
+    const vec3[4] POSITIONS = vec3[](
+        vec3(-1.0, -1.0, 0.0),
+        vec3(1.0, -1.0, 0.0),
+        vec3(-1.0, 1.0, 0.0),
+        vec3(1.0, 1.0, 0.0)
+    );
+    
+    const int[6] INDICES = int[](
+        0, 1, 2,
+        3, 2, 1
+    );
 
-        void main(void) {
-            vec3 position = POSITIONS[INDICES[gl_VertexID]];
-            gl_Position = vec4(position, 1.0);
-        }
+    void main(void) {
+        vec3 position = POSITIONS[INDICES[gl_VertexID]];
+        gl_Position = vec4(position, 1.0);
+    }
     </script>
     <script type="x-shader/x-fragment" id="init_trails_fs">#version 300 es
-      precision highp float;
+    precision highp float;
 
-      uniform sampler2D uPositionTexture;
-      uniform sampler2D uVelocityTexture;
+    layout (location = 0) out vec3 o_position;
+    layout (location = 1) out vec3 o_velocity;
 
-      layout (location = 0) out vec2 o_position;
-      layout (location = 1) out vec2 o_velocity;
+    float random(float p) {
+      return fract(sin(p * 12.9898) * 43758.5453);
+    }
 
-      void main(void) {
-
-      }
+    void main(void) {
+      vec3 position = vec3(0.0);
+      position.x = random(gl_FragCoord.x * 0.234 + 432.43);
+      position.y = random(gl_FragCoord.x * 0.342 + 342.34);
+      position.z = random(gl_FragCoord.x * 0.423 + 423.42);
+      o_position = 1.0 * (position * 2.0 - 1.0);
+      o_velocity = vec3(0.0);
+    }
     </script>
     <script type="x-shader/x-fragment" id="update_trails_fs">#version 300 es
-        precision highp float;
+    precision highp float;
 
-        uniform sampler2D uPositionTexture;
-        uniform sampler2D uVelocityTexture;
-        uniform float uTime;
-        uniform float uDeltaTime;
+    uniform sampler2D uPositionTexture;
+    uniform sampler2D uVelocityTexture;
+    uniform float uTime;
+    uniform float uDeltaTime;
 
-        layout (location = 0) out vec2 o_position;
-        layout (location = 1) out vec2 o_velocity;
+    layout (location = 0) out vec3 o_position;
+    layout (location = 1) out vec3 o_velocity;
 
-        void main(void) {
+    float random(vec4 x) {
+      return fract(sin(dot(x,vec4(12.9898, 78.233, 39.425, 27.196))) * 43758.5453);
+    }
 
-            ivec2 coord = ivec2(gl_FragCoord.xy);
-            vec2 st = (2.0 * gl_FragCoord.xy - u_resolution) / min(u_resolution.x, u_resolution.y);
-            vec2 mouse = (2.0 * u_mousePosition - u_resolution) / min(u_resolution.x, u_resolution.y);
+    float valuenoise(vec4 x) {
+      vec4 i = floor(x);
+      vec4 f = fract(x);
+      vec4 u = f * f * (3.0 - 2.0 * f);
+      return mix(
+        mix(
+          mix(
+            mix(random(i + vec4(0.0, 0.0, 0.0, 0.0)), random(i + vec4(1.0, 0.0, 0.0, 0.0)), u.x),
+            mix(random(i + vec4(0.0, 1.0, 0.0, 0.0)), random(i + vec4(1.0, 1.0, 0.0, 0.0)), u.x),
+            u.y
+          ),
+          mix(
+            mix(random(i + vec4(0.0, 0.0, 1.0, 0.0)), random(i + vec4(1.0, 0.0, 1.0, 0.0)), u.x),
+            mix(random(i + vec4(0.0, 1.0, 1.0, 0.0)), random(i + vec4(1.0, 1.0, 1.0, 0.0)), u.x),
+            u.y
+          ),
+          u.z
+        ),
+        mix(
+          mix(
+            mix(random(i + vec4(0.0, 0.0, 0.0, 1.0)), random(i + vec4(1.0, 0.0, 0.0, 1.0)), u.x),
+            mix(random(i + vec4(0.0, 1.0, 0.0, 1.0)), random(i + vec4(1.0, 1.0, 0.0, 1.0)), u.x),
+            u.y
+          ),
+          mix(
+            mix(random(i + vec4(0.0, 0.0, 1.0, 1.0)), random(i + vec4(1.0, 0.0, 1.0, 1.0)), u.x),
+            mix(random(i + vec4(0.0, 1.0, 1.0, 1.0)), random(i + vec4(1.0, 1.0, 1.0, 1.0)), u.x),
+            u.y
+          ),
+          u.z
+        ),
+        u.w
+      );
+    }
 
-            ivec2 textureSize = textureSize(u_texture, 0);
+    float fbm(vec4 x) {
+      float sum = 0.0;
+      float amp = 0.5;
+      for (int i = 0; i < 5; i++) {
+        sum += amp * valuenoise(x);
+        amp *= 0.5;
+        x *= 2.01;
+      }
+      return sum * 2.0 - 1.0;
+    }
 
-            vec2 state = texelFetch(u_texture, coord, 0).xy;
+    float noiseX(vec4 x) {
+      return fbm(x * 0.34 + vec4(4324.32, 7553.13, 5417.33, 1484.43));
+    }
 
-            vec2 left = texelFetch(u_texture, ivec2(coord.x != 0 ? coord.x - 1 : textureSize.x -1, coord.y), 0).xy;
-            vec2 right = texelFetch(u_texture, ivec2(coord.x != textureSize.x ? coord.x + 1 : 0, coord.y), 0).xy;
-            vec2 down = texelFetch(u_texture, ivec2(coord.x, coord.y != 0 ? coord.y - 1 : textureSize.y - 1), 0).xy;
-            vec2 up = texelFetch(u_texture, ivec2(coord.x, coord.y != textureSize.y ? coord.y + 1 : 0), 0).xy;
+    float noiseY(vec4 x) {
+      return fbm(x * 0.71 + vec4(1614.43, 8439.32, 4211.93, 8546.29));
+    }
 
-            vec2 lapl = (left + right + down + up - 4.0 * state);
-            float du = 0.2079 * lapl.x - state.x * state.y * state.y + u_feed * (1.0 - state.x);
-            float dv = 0.105 * lapl.y + state.x * state.y * state.y - state.y * (u_feed + u_kill);
-            vec2 dst = state + u_delta * vec2(du, dv);
+    float noiseZ(vec4 x) {
+      return fbm(x * 0.54 + vec4(4342.34, 7569.34, 3812.42, 1589.54));
+    }
 
-            if (u_mousePress) {
-              vec2 diff = (st - mouse) * 10.0;
-              float dist = dot(diff, diff);
-              if (dist < 0.03) {
-                dst.y = 0.3;
-              }
-            } 
+    vec3 curlnoise(vec3 x, float time) {
+      float e = 0.01;
+      vec3 dx = vec3(e, 0.0, 0.0);
+      vec3 dy = vec3(0.0, e, 0.0);
+      vec3 dz = vec3(0.0, 0.0, e);
+      return vec3(
+        (noiseZ(vec4(x + dy, time)) - noiseZ(vec4(x - dy, time))) - (noiseY(vec4(x + dz, time)) - noiseY(vec4(x - dz, time))),
+        (noiseX(vec4(x + dz, time)) - noiseX(vec4(x - dz, time))) - (noiseZ(vec4(x + dx, time)) - noiseZ(vec4(x - dx, time))),
+        (noiseY(vec4(x + dx, time)) - noiseY(vec4(x - dx, time))) - (noiseX(vec4(x + dy, time)) - noiseX(vec4(x - dy, time)))
+      ) / (2.0 * e);
+    }
 
-            o_grayScott = dst;
+    vec3 limit(vec3 v, float max) {
+      if (length(v) > max) {
+        return normalize(v) * max;
+      }
+      return v;
+    }
+
+    void main(void) {
+        ivec2 coord = ivec2(gl_FragCoord.xy);
+
+        vec3 nextPosition, nextVelocity;
+
+        if (coord.y == 0) {
+          vec3 position = texelFetch(uPositionTexture, coord, 0).xyz;
+          vec3 velocity = texelFetch(uVelocityTexture, coord, 0).xyz;
+
+          // update position & velocity
+          vec3 acceleration = curlnoise(position * 0.005, uTime * 0.2);
+          acceleration = 30.0 * mix(acceleration, -normalize(position), smoothstep(200.0, 200.0 * 1.05, length(position)));
+
+          nextVelocity = limit(velocity + uDeltaTime * acceleration, 50.0);
+          nextPosition = position + uDeltaTime * nextVelocity;
+        } else {
+          nextPosition = texelFetch(uPositionTexture, coord - ivec2(0, 1), 0).xyz;
+          nextVelocity = texelFetch(uVelocityTexture, coord - ivec2(0, 1), 0).xyz;
         }
+        o_position = nextPosition;
+        o_velocity = nextVelocity;
+    }
     </script>
     <script type="x-shader/x-vertex" id="render_vs">#version 300 es
     uniform sampler2D uPositionTexture;
-    uniform mat4 mvpMatrix;
+    uniform mat4 vpMatrix;
 
     void main(void) {
       vec3 position = texelFetch(uPositionTexture, ivec2(gl_InstanceID, gl_VertexID), 0).xyz;
-      gl_Position = mvpMatrix * vec4(position, 1.0);
+      gl_Position = vpMatrix * vec4(position, 1.0);
     }
     </script>
-    <script type="x-shader/x-fragment" id="render_gray_scott_fs">#version 300 es
-        precision highp float;
+    <script type="x-shader/x-fragment" id="render_trails_fs">#version 300 es
+    precision highp float;
 
-        out vec4 fragColor;
+    out vec4 fragColor;
 
-        void main(void) {
-            fragColor = vec4(1.0);
-        }
+    void main(void) {
+      fragColor = vec4(1.0);
+    }
     </script>
 </head>
 <body>
