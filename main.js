@@ -37,7 +37,6 @@ window.onload = () => {
   function render() {
 
     let params = {
-      render: document.getElementById('render').checked,
       trail_size: 4096,
       vertex_size: 256,
       max_speed: document.getElementById('max_speed').value,
@@ -95,12 +94,7 @@ window.onload = () => {
       gl.bindTexture(gl.TEXTURE_2D, trailsFBObjR.positionTexture);
       gl.uniform1i(renderUniforms['uPositiontexture'], 0);
       gl.uniformMatrix4fv(renderUniforms['vpMatrix'], false, tmpMatrix);
-      if (params.render) {
-        gl.drawArraysInstanced(gl.LINE_STRIP, 0, params.vertex_size, params.trail_size);
-      } else {
-        gl.uniform1i(renderUniforms['uRenderType'], params.render);
-        gl.drawArraysInstanced(gl.POINTS, 0, params.vertex_size, params.trail_size);
-      }
+      gl.drawArraysInstanced(gl.LINE_STRIP, 0, params.vertex_size, params.trail_size);
       gl.disable(gl.BLEND);
     }
     
@@ -127,7 +121,6 @@ window.onload = () => {
       m.multiply(pMatrix, vMatrix, tmpMatrix);
 
       params = {
-        render: document.getElementById('render').checked,
         trail_size: 4096,
         vertex_size: 256,
         max_speed: document.getElementById('max_speed').value,
@@ -138,7 +131,6 @@ window.onload = () => {
         cam_dist: document.getElementById('cam_dist').value,
       };
 
-      let eRender = document.getElementById('disp_render');
       let eMaxSpeed = document.getElementById('disp_max_speed');
       let eMaxForce = document.getElementById('disp_max_force');
       let eboundRad = document.getElementById('disp_bound_rad');
@@ -146,11 +138,6 @@ window.onload = () => {
       let eFOV = document.getElementById('disp_fov');
       let eCamDist = document.getElementById('disp_cam_dist');
       
-      if (params.render) {
-        eRender.innerHTML = 'Line';
-      } else {
-        eRender.innerHTML = 'Points';
-      }
       eMaxSpeed.innerHTML = params.max_speed;
       eMaxForce.innerHTML = params.max_force;
       eboundRad.innerHTML= params.bound_rad;
